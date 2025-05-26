@@ -1,6 +1,10 @@
 let video;
 let facemesh;
+let handpose;
 let predictions = [];
+let handPredictions = [];
+let gesture = "none"; // stone, paper, scissors
+
 let maskOpen, maskClose;
 
 function preload() {
@@ -21,9 +25,18 @@ function setup() {
   facemesh.on('predict', results => {
     predictions = results;
   });
+
+  handpose = ml5.handpose(video, handReady);
+  handpose.on('predict', results => {
+    handPredictions = results;
+    if (handPredictions.length > 0) {
+      gesture = detectGesture(handPredictions[0].landmarks);
+    }
+  });
 }
 
 function modelReady() {}
+function handReady() {}
 
 function draw() {
   image(video, 0, 0, width, height);
@@ -60,5 +73,29 @@ function draw() {
     stroke(255, 0, 0);
     strokeWeight(4);
     ellipse(x, y, 100, 100);
+
+    // 顯示辨識到的手勢字幕
+    if (gesture === "stone" || gesture === "scissors" || gesture === "paper") {
+      fill(255, 0, 0);
+      noStroke();
+      textSize(48);
+      textAlign(CENTER, TOP);
+      let label = "";
+      if (gesture === "stone") label = "石頭";
+      if (gesture === "scissors") label = "剪刀";
+      if (gesture === "paper") label = "布";
+      text(label, width / 2, 40);
+    }
   }
+}
+
+// 簡單手勢辨識：根據手指伸展情況判斷剪刀石頭布
+function detectGesture(landmarks) {
+  const palm = landmarks[0];
+  const tips = [8, 12, 16, 20].map(i => landmarks[i]);
+  const dists = tips.map(tip => dist(palm[0], palm[1], tip[0], tip[1]));
+  if (dists.every(d => d < 40)) return "stone";
+  if (dists.every(d => d > 80)) return "paper";
+  if (dists[0] > 80 && dists[1] > 80 && dists[2] < 40 && dists[3] < 40) return "scissors";
+  return "none";
 }
